@@ -1,0 +1,12 @@
+# Node
+/frontend/node_modules
+/frontend/.next
+/frontend/.env*
+/frontend/pnpm-lock.yaml
+
+# Python
+/backend/__pycache__/
+/backend/.env
+
+# VSCode
+.vscode/
