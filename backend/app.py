@@ -24,6 +24,7 @@ QUESTION_TYPE_DESCRIPTIONS = {
     "적용 판단": "지침/보안수칙 등을 특정 상황에 적용할 수 있는지 묻는 문제"
 }
 
+
 @app.route("/generate", methods=["POST"])
 def generate():
     data = request.get_json()
