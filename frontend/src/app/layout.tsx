@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { CacheProvider } from '@emotion/react';
+import { emotionCache } from '@/emotion-cache'; // 위에서 만든 캐시
 import AppHeader from "@/components/Header"; // 헤더는 클라이언트 컴포넌트
 
 const geistSans = Geist({
