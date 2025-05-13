@@ -11,7 +11,7 @@ CORS(app)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# 문제 유형 설명 매핑
+# 문제 유형 설명 매핑 
 QUESTION_TYPE_DESCRIPTIONS = {
     "기본 정보 확인": "정보 또는 정의를 묻는 정형화된 문제",
     "빈칸 채우기": "내 핵심 개념을 빈칸으로 제시, 알맞은 단어나 개념 선택하는 문제",
