@@ -3,6 +3,7 @@ from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+import re
 
 load_dotenv()
 
@@ -39,7 +40,8 @@ def generate():
 
     # 프롬프트 구성
     prompt = f"""
-다음 조건에 맞는 금융보안 문제를 생성해주세요:
+당신은 금융보안 교육용 문제를 출제하는 전문가입니다. 아래 조건에 따라 문제를 생성해주세요:
+빈 배열은 절대 반환하지 마세요.
 
 1. 문제 유형: {question_type}
    - 유형 설명: {question_type_desc}
@@ -76,22 +78,37 @@ def generate():
             max_tokens=2000
         )
         result = response.choices[0].message.content
+        print("📤 GPT 응답 원문:\n", result)
         questions = parse_response(result)
         return jsonify({"questions": questions})
     except Exception as e:
+        import traceback
+        print("❌ GPT 호출 중 오류 발생:\n", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 
 def parse_response(content):
     questions_and_answers = []
-    raw_questions = [q.strip() for q in content.split("\n\n---\n\n") if q.strip()]
+    raw_questions = re.split(r"\n-{3,}\n", content.strip())
+
     for raw in raw_questions:
-        parts = raw.split("\n\n[해답]\n")
+        parts = re.split(r"\n*\[해답\]|\n*해답\n*|\n*해답:\n*", raw)
         if len(parts) == 2:
             question = parts[0].strip()
             answer = parts[1].strip()
-            questions_and_answers.append({"question": question, "answer": answer})
+
+            if not question:
+                print("⚠️ 질문 누락됨:", raw[:200])
+                continue
+
+            questions_and_answers.append({
+                "question": question,
+                "answer": answer
+            })
+        else:
+            print("⚠️ 파싱 실패:", raw[:200])
     return questions_and_answers
+
 
 
 if __name__ == "__main__":
