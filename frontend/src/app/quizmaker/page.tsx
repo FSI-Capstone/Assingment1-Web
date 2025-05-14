@@ -614,16 +614,41 @@ export default function QuizmakerPage() {
     }));
   };
 
+  // CSV 다운로드 함수
+  const downloadCSV = () => {
+    if (!questions.length) return;
+    const header = ['번호', '출제기준', '문제', '해답'];
+    const rows = questions.map((q, idx) => [
+      idx + 1,
+      `${settings.mainCriteria} > ${settings.subCriteria} > ${settings.detailCriteria}`,
+      (q.question || '').replace(/\n/g, ' ').replace(/\r/g, ''),
+      (q.answer || '').replace(/\n/g, ' ').replace(/\r/g, ''),
+    ]);
+    const csvContent =
+      [header, ...rows]
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'questions.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setProgress(0);
 
     try {
+      // 항상 Plain Text로 요청
       const res = await fetch('http://127.0.0.1:5000/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ ...settings, output_format: 'Plain Text' }),
       });
 
       if (!res.ok) throw new Error(`서버 응답 오류: ${res.status}`);
@@ -747,22 +772,32 @@ export default function QuizmakerPage() {
         </form>
 
         {questions.length > 0 && (
-          <QuestionSection>
-            <QuestionTitle>생성된 문제</QuestionTitle>
-            <QuestionList>
-              {questions.map((q, i) => (
-                <QuestionItem key={i}>
-                  <QuestionText>{q.question}</QuestionText>
-                  {q.answer && (
-                    <AnswerBox>
-                      <strong>📝 정답 및 해설:</strong><br />
-                      {q.answer}
-                    </AnswerBox>
-                  )}
-                </QuestionItem>
-              ))}
-            </QuestionList>
-          </QuestionSection>
+          <>
+            <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+              <button onClick={downloadCSV} style={{
+                background: '#4f46e5', color: 'white', border: 'none', borderRadius: '0.5rem',
+                padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: 600
+              }}>
+                CSV 다운로드
+              </button>
+            </div>
+            <QuestionSection>
+              <QuestionTitle>생성된 문제</QuestionTitle>
+              <QuestionList>
+                {questions.map((q, i) => (
+                  <QuestionItem key={i}>
+                    <QuestionText>{q.question}</QuestionText>
+                    {q.answer && (
+                      <AnswerBox>
+                        <strong>📝 정답 및 해설:</strong><br />
+                        {q.answer}
+                      </AnswerBox>
+                    )}
+                  </QuestionItem>
+                ))}
+              </QuestionList>
+            </QuestionSection>
+          </>
         )}
       </Card>
     </SectionWrapper>
