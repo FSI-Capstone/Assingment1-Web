@@ -8,7 +8,7 @@ from pathlib import Path
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__) 
 CORS(app)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
