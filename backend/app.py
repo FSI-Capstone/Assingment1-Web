@@ -4,6 +4,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import re
+from pathlib import Path
 
 load_dotenv()
 
@@ -25,6 +26,23 @@ QUESTION_TYPE_DESCRIPTIONS = {
     "적용 판단": "지침/보안수칙 등을 특정 상황에 적용할 수 있는지 묻는 문제"
 }
 
+# 출제기준 가이드 불러오기
+def load_guide_content(domain):
+    base_path = Path(__file__).parent / "guides"
+    guide_files = {
+        "일반": "general.md",
+        "IT": "it.md",
+        "법률": "law.md",
+        "동향": "trend.md"
+    }
+
+    try:
+        file_path = base_path / guide_files[domain]
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"❌ 가이드 로딩 오류: {str(e)}"
+
 @app.route("/generate", methods=["POST"])
 def generate():
     data = request.get_json()
@@ -36,6 +54,10 @@ def generate():
     output_format = data.get("output_format", "Plain Text")
 
     question_type_desc = QUESTION_TYPE_DESCRIPTIONS.get(question_type, "")
+    guide_content = load_guide_content(domain)  # 🔧 도메인별 가이드 로딩
+
+    if guide_content.startswith("❌"):
+        return jsonify({"error": guide_content}), 500
 
     # 프롬프트 구성
     prompt = f"""
