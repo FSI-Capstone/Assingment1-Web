@@ -1,10 +1,12 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import re
 from pathlib import Path
+import csv
+import io
 
 load_dotenv()
 
@@ -105,6 +107,17 @@ def generate():
         result = response.choices[0].message.content
         print("📤 GPT 응답 원문:\n", result)
         questions = parse_response(result)
+
+        if output_format == "CSV":
+            # Create CSV data
+            csv_output = io.StringIO()
+            csv_writer = csv.writer(csv_output)
+            csv_writer.writerow(["번호", "출제기준", "문제", "해답"])
+            for idx, qa in enumerate(questions, start=1):
+                csv_writer.writerow([idx, f"{main_criteria} > {sub_criteria} > {detail_criteria}", qa["question"], qa["answer"]])
+            csv_output.seek(0)
+            return send_file(io.BytesIO(csv_output.getvalue().encode('utf-8')), mimetype='text/csv', as_attachment=True, download_name='questions.csv')
+
         return jsonify({"questions": questions})
     except Exception as e:
         import traceback
@@ -134,7 +147,11 @@ def parse_response(content):
             print("⚠️ 파싱 실패:", raw[:200])
     return questions_and_answers
 
-
+# New endpoint to download CSV file
+@app.route("/download_csv", methods=["GET"])
+def download_csv():
+    # This endpoint can be used if CSV is pre-generated and stored
+    return send_file("path_to_csv_file.csv", mimetype='text/csv', as_attachment=True, attachment_filename='questions.csv')
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
