@@ -4,12 +4,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
-
 app = Flask(__name__)
 CORS(app)
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # 문제 유형 설명 매핑 
 QUESTION_TYPE_DESCRIPTIONS = {
@@ -23,9 +19,13 @@ QUESTION_TYPE_DESCRIPTIONS = {
     "비교/구분": "개념이나 기술을 구별하거나 비교하는 문제",
     "적용 판단": "지침/보안수칙 등을 특정 상황에 적용할 수 있는지 묻는 문제"
 }
+@app.route("/", methods=["GET"])
+def hello():
+    return "서버 정상 작동 중"
 
 @app.route("/generate", methods=["POST"])
 def generate():
+    client = get_openai_client() # OpenAI 클라이언트 설정 함수 호출
     data = request.get_json()
     question_type = data.get("question_type", "기본 정보 확인")
     domain = data.get("domain", "일반")
@@ -92,6 +92,14 @@ def parse_response(content):
             questions_and_answers.append({"question": question, "answer": answer})
     return questions_and_answers
 
+# OpenAI 클라이언트 설정
+def get_openai_client():
+    """OpenAI 클라이언트를 초기화하고 반환합니다."""
+    load_dotenv()
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다. .env 파일을 확인해주세요.")
+    return OpenAI(api_key=api_key)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
