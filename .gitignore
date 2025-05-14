@@ -10,3 +10,5 @@
 
 # VSCode
 .vscode/
+
+node_modules/
