@@ -53,6 +53,9 @@ def generate():
     difficulty = data.get("difficulty", "중")
     include_explanation = data.get("include_explanation", True)
     output_format = data.get("output_format", "Plain Text")
+    main_criteria = data.get("mainCriteria", "")
+    sub_criteria = data.get("subCriteria", "")
+    detail_criteria = data.get("detailCriteria", "")
 
     question_type_desc = QUESTION_TYPE_DESCRIPTIONS.get(question_type, "")
     guide_content = load_guide_content(domain)  # 🔧 도메인별 가이드 로딩
@@ -71,11 +74,12 @@ def generate():
 3. 난이도: {difficulty}
 4. 문제 수: {num_questions}개
 5. 출력 형식: {output_format}
+6. 출제기준: {main_criteria} > {sub_criteria} > {detail_criteria}
 
 각 문제는 5지선다로 다음 형식을 정확히 따라주세요:
 
 [문제 형식]
-- 출제 기준: [주요항목] > [세부항목] > [세세항목] 형식으로 표시
+- 출제 기준: {main_criteria}> {sub_criteria} > {detail_criteria} 형식으로 표시
 - 문제 번호와 내용 (반드시 위에서 설명한 문제 유형의 특성을 정확히 반영해야 함)
 - 보기
 
