@@ -86,9 +86,6 @@ export default function AppHeader() {
       <Nav>
         <Link href="/">홈</Link>
         <Link href="/quizmaker">문제생성</Link>
-        <button onClick={downloadCSV} disabled={loading}>
-          {loading ? '다운로드 중...' : 'CSV 다운로드'}
-        </button>
       </Nav>
     </Header>
   );
