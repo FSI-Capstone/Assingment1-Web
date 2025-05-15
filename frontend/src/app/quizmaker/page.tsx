@@ -66,6 +66,23 @@ const SubmitButton = styled('button', {
   }
 `;
 
+const AddButton = styled('button', {
+  shouldForwardProp: (prop) => isPropValid(prop) && prop !== 'loading',
+})<{ loading: boolean }>`
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  color: white;
+  font-weight: 600;
+  background-color: ${({ loading }) => (loading ? '#a1a1aa' : '#059669')};
+  cursor: ${({ loading }) => (loading ? 'not-allowed' : 'pointer')};
+  transition: background-color 0.2s ease;
+  border: none;
+  
+  &:hover {
+    background-color: ${({ loading }) => (loading ? '#a1a1aa' : '#047857')};
+  }
+`;
+
 const ProgressWrapper = styled.div`
   width: 100%;
   background-color: #f0f8ff;
@@ -90,6 +107,9 @@ const QuestionTitle = styled.h2`
   font-size: 1.25rem;
   font-weight: bold;
   color: #27272a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 `;
 
 const QuestionList = styled.ul`
@@ -112,6 +132,58 @@ const AnswerBox = styled.p`
   padding: 0.75rem;
   border-radius: 0.5rem;
   white-space: pre-wrap;
+`;
+
+const PaginationWrapper = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+`;
+
+const PaginationButton = styled.button<{ active?: boolean; disabled?: boolean }>`
+  padding: 0.5rem 1rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.5rem;
+  background-color: ${({ active }) => (active ? '#4f46e5' : 'white')};
+  color: ${({ active }) => (active ? 'white' : '#27272a')};
+  cursor: ${({ disabled }) => (disabled ? 'not-allowed' : 'pointer')};
+  opacity: ${({ disabled }) => (disabled ? 0.5 : 1)};
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: ${({ active, disabled }) => 
+      disabled ? 'transparent' : (active ? '#4338ca' : '#f3f4f6')
+    };
+  }
+`;
+
+const PageInfo = styled.span`
+  color: #6b7280;
+  font-size: 0.875rem;
+`;
+
+const ActionButtonWrapper = styled.div`
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  align-items: center;
+`;
+
+const DownloadButton = styled('button')`
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  color: white;
+  font-weight: 600;
+  background-color: #4f46e5;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: none;
+
+  &:hover {
+    background-color: #4338ca;
+  }
 `;
 
 // 📚 선택지 목록
@@ -560,6 +632,16 @@ export default function QuizmakerPage() {
   const [mainOptions, setMainOptions] = useState<string[]>([]);
   const [subOptions, setSubOptions] = useState<string[]>([]);
   const [detailOptions, setDetailOptions] = useState<string[]>([]);
+  
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const questionsPerPage = 5;
+  
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(questions.length / questionsPerPage);
+  const startIndex = (currentPage - 1) * questionsPerPage;
+  const endIndex = startIndex + questionsPerPage;
+  const currentQuestions = questions.slice(startIndex, endIndex);
 
   // 도메인 변경 시 주요항목 옵션 업데이트
   useEffect(() => {
@@ -606,11 +688,18 @@ export default function QuizmakerPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    const newValue = type === 'checkbox' && 'checked' in e.target
+      ? (e.target as HTMLInputElement).checked
+      : value;
+    
+    // 문제 수 변경 시 디버깅 로그 추가
+    if (name === 'num_questions') {
+      console.log('문제 수 변경:', newValue);
+    }
+    
     setSettings((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' && 'checked' in e.target
-        ? (e.target as HTMLInputElement).checked
-        : value,
+      [name]: newValue,
     }));
   };
 
@@ -640,21 +729,47 @@ export default function QuizmakerPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     setLoading(true);
     setProgress(0);
+    setCurrentPage(1); // 새로 생성 시 첫 페이지로
 
     try {
-      // 항상 Plain Text로 요청
+      // 선택되지 않은 기준은 빈 문자열로 전송 (서버에서 랜덤 선택)
+      const requestData = {
+        question_type: settings.question_type,
+        domain: settings.domain,
+        num_questions: parseInt(settings.num_questions.toString()), // 숫자로 변환
+        difficulty: settings.difficulty,
+        include_explanation: settings.include_explanation,
+        output_format: 'Plain Text',
+        mainCriteria: settings.mainCriteria || '',
+        subCriteria: settings.subCriteria || '',
+        detailCriteria: settings.detailCriteria || '',
+      };
+      
+      // 요청 데이터 로그
+      console.log('서버로 전송하는 데이터:', requestData);
+      
       const res = await fetch('http://127.0.0.1:5000/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...settings, output_format: 'Plain Text' }),
+        body: JSON.stringify(requestData),
       });
 
       if (!res.ok) throw new Error(`서버 응답 오류: ${res.status}`);
 
       const data = await res.json();
-      setQuestions(data.questions);
+      
+      // 응답 데이터 로그
+      console.log('서버 응답 데이터:', data);
+      console.log(`요청한 문제 수: ${requestData.num_questions}, 받은 문제 수: ${data.questions?.length || 0}`);
+      
+      if (data.questions && data.questions.length !== requestData.num_questions) {
+        console.warn(`⚠️ 문제 수 불일치: 요청 ${requestData.num_questions}개, 수신 ${data.questions.length}개`);
+      }
+      
+      setQuestions(data.questions || []);
       setProgress(100);
       console.log('✅ 문제 생성 완료:', data.questions);
     } catch (error) {
@@ -666,6 +781,71 @@ export default function QuizmakerPage() {
         setProgress(0);
       }, 1500); // 약간의 여유 시간 후 초기화
     }
+  };
+
+  // 추가 생성 함수
+  const handleAddMore = async () => {
+    setLoading(true);
+    setProgress(0);
+
+    try {
+      // 선택되지 않은 기준은 빈 문자열로 전송 (서버에서 랜덤 선택)
+      const requestData = {
+        question_type: settings.question_type,
+        domain: settings.domain,
+        num_questions: parseInt(settings.num_questions.toString()), // 숫자로 변환
+        difficulty: settings.difficulty,
+        include_explanation: settings.include_explanation,
+        output_format: 'Plain Text',
+        mainCriteria: settings.mainCriteria || '',
+        subCriteria: settings.subCriteria || '',
+        detailCriteria: settings.detailCriteria || '',
+      };
+      
+      // 요청 데이터 로그
+      console.log('추가 생성 요청 데이터:', requestData);
+      
+      const res = await fetch('http://127.0.0.1:5000/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!res.ok) throw new Error(`서버 응답 오류: ${res.status}`);
+
+      const data = await res.json();
+      
+      // 응답 데이터 로그
+      console.log('추가 생성 응답 데이터:', data);
+      console.log(`요청한 문제 수: ${requestData.num_questions}, 받은 문제 수: ${data.questions?.length || 0}`);
+      
+      if (data.questions && data.questions.length !== requestData.num_questions) {
+        console.warn(`⚠️ 추가 생성 문제 수 불일치: 요청 ${requestData.num_questions}개, 수신 ${data.questions.length}개`);
+      }
+      
+      // 기존 문제에 추가
+      setQuestions(prev => [...prev, ...(data.questions || [])]);
+      setProgress(100);
+      console.log('✅ 추가 문제 생성 완료:', data.questions);
+      
+      // 마지막 페이지로 이동
+      const newTotalPages = Math.ceil((questions.length + (data.questions?.length || 0)) / questionsPerPage);
+      setCurrentPage(newTotalPages);
+    } catch (error) {
+      console.error('❌ 추가 문제 생성 실패:', error);
+      alert('추가 문제 생성 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
+    } finally {
+      setTimeout(() => {
+        setLoading(false);
+        setProgress(0);
+      }, 1500);
+    }
+  };
+
+  // 페이지 변경 핸들러
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -691,37 +871,37 @@ export default function QuizmakerPage() {
               </Select>
             </div>
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem', background: '#f9fafb', marginTop: '0.5rem' }}>
-              <Label style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.5rem', color: '#3730a3' }}>출제기준 선택 <span style={{ color: '#a1a1aa', fontWeight: 400, fontSize: '0.9em' }}></span></Label>
+              <Label style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.25rem', color: '#3730a3' }}>출제기준 선택</Label>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                💡 선택하지 않을 경우 해당 도메인의 모든 항목에서 랜덤하게 문제를 생성합니다
+              </p>
               <div style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr' }}>
                 <div>
-                  <Label htmlFor="mainCriteria">주요항목</Label>
+                  <Label htmlFor="mainCriteria">주요항목 (선택사항)</Label>
                   <Select id="mainCriteria" name="mainCriteria" value={settings.mainCriteria} onChange={handleChange}>
-                    <option value="">주요항목을 선택하세요</option>
+                    <option value="">모든 주요항목에서 선택</option>
                     {mainOptions.map((main) => (
                       <option key={main} value={main}>{main}</option>
                     ))}
                   </Select>
-                  
                 </div>
                 <div>
-                  <Label htmlFor="subCriteria">세부항목</Label>
+                  <Label htmlFor="subCriteria">세부항목 (선택사항)</Label>
                   <Select id="subCriteria" name="subCriteria" value={settings.subCriteria} onChange={handleChange} disabled={!settings.mainCriteria}>
-                    <option value="">세부항목을 선택하세요</option>
+                    <option value="">{settings.mainCriteria ? "모든 세부항목에서 선택" : "먼저 주요항목을 선택하세요"}</option>
                     {subOptions.map((sub) => (
                       <option key={sub} value={sub}>{sub}</option>
                     ))}
                   </Select>
-                  
                 </div>
                 <div>
-                  <Label htmlFor="detailCriteria">세세항목</Label>
+                  <Label htmlFor="detailCriteria">세세항목 (선택사항)</Label>
                   <Select id="detailCriteria" name="detailCriteria" value={settings.detailCriteria} onChange={handleChange} disabled={!settings.subCriteria}>
-                    <option value="">세세항목을 선택하세요</option>
+                    <option value="">{settings.subCriteria ? "모든 세세항목에서 선택" : "먼저 세부항목을 선택하세요"}</option>
                     {detailOptions.map((detail) => (
                       <option key={detail} value={detail}>{detail}</option>
                     ))}
                   </Select>
-                  
                 </div>
               </div>
             </div>
@@ -732,6 +912,9 @@ export default function QuizmakerPage() {
                   <option key={i + 1} value={i + 1}>{i + 1}</option>
                 ))}
               </Select>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                현재 선택: {settings.num_questions}개
+              </div>
             </div>
             <div>
               <Label>난이도</Label>
@@ -773,29 +956,84 @@ export default function QuizmakerPage() {
 
         {questions.length > 0 && (
           <>
-            <div style={{ marginTop: '1rem', textAlign: 'right' }}>
-              <button onClick={downloadCSV} style={{
-                background: '#4f46e5', color: 'white', border: 'none', borderRadius: '0.5rem',
-                padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: 600
-              }}>
-                CSV 다운로드
-              </button>
-            </div>
+            <ActionButtonWrapper>
+              <AddButton type="button" loading={loading} onClick={handleAddMore}>
+                ➕ 추가 생성
+              </AddButton>
+              <DownloadButton onClick={downloadCSV}>
+                📥 CSV 다운로드
+              </DownloadButton>
+            </ActionButtonWrapper>
+            
             <QuestionSection>
-              <QuestionTitle>생성된 문제</QuestionTitle>
+              <QuestionTitle>
+                생성된 문제 
+                <PageInfo>총 {questions.length}개</PageInfo>
+              </QuestionTitle>
+              
               <QuestionList>
-                {questions.map((q, i) => (
-                  <QuestionItem key={i}>
-                    <QuestionText>{q.question}</QuestionText>
-                    {q.answer && (
-                      <AnswerBox>
-                        <strong>📝 정답 및 해설:</strong><br />
-                        {q.answer}
-                      </AnswerBox>
-                    )}
-                  </QuestionItem>
-                ))}
+                {currentQuestions.map((q, i) => {
+                  const questionNumber = startIndex + i + 1;
+                  return (
+                    <QuestionItem key={questionNumber}>
+                      <QuestionText>
+                        <strong>{questionNumber}번.</strong> {q.question}
+                      </QuestionText>
+                      {q.answer && (
+                        <AnswerBox>
+                          <strong>📝 정답 및 해설:</strong><br />
+                          {q.answer}
+                        </AnswerBox>
+                      )}
+                    </QuestionItem>
+                  );
+                })}
               </QuestionList>
+
+              {/* 페이지네이션 */}
+              {totalPages > 1 && (
+                <PaginationWrapper>
+                  <PaginationButton 
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                  >
+                    이전
+                  </PaginationButton>
+                  
+                  {[...Array(totalPages)].map((_, i) => {
+                    const page = i + 1;
+                    // 현재 페이지 주변 페이지만 표시
+                    if (
+                      page === 1 || 
+                      page === totalPages ||
+                      (page >= currentPage - 2 && page <= currentPage + 2)
+                    ) {
+                      return (
+                        <PaginationButton
+                          key={page}
+                          active={page === currentPage}
+                          onClick={() => handlePageChange(page)}
+                        >
+                          {page}
+                        </PaginationButton>
+                      );
+                    } else if (
+                      page === currentPage - 3 || 
+                      page === currentPage + 3
+                    ) {
+                      return <span key={page}>...</span>;
+                    }
+                    return null;
+                  })}
+                  
+                  <PaginationButton 
+                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                  >
+                    다음
+                  </PaginationButton>
+                </PaginationWrapper>
+              )}
             </QuestionSection>
           </>
         )}
